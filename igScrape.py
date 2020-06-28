@@ -6,66 +6,44 @@ Created on Thu Feb 07 09:12:39 2019
 """
 #%%
 import requests
-import pandas as pd
-from datetime import datetime
-from sys import argv
+import json
+from time import sleep
+from random import randint
 #%%
 
+class Instagram_Scrape(object):
 
-def getComments(user):
-    """
-    Parameters
-    ----------
-    user : String
-        Instagram user handle(without @).
+    def __init__(self):
+        self.profiles = {}
+        self.posts = {}
 
-    Returns
-    -------
-    None.
+    def add_profile(self, profile):
+        self.profiles[profile] = False
 
-    """
-    now = datetime.now()
-    current_time = now.strftime("%H%M%S")
+    def add_profiles(self, profile_list):
+        for profile in profile_list:
+            self.profiles[profile] = False
 
-    try:
-        userposts = requests.get(f'https://www.instagram.com/{user}/?__a=1')
-        lastpost = userposts.json()
-        lastpostid = lastpost['graphql']['user']['edge_owner_to_timeline_media']['edges'][0]['node']['shortcode']
+    def add_post(self, post):
+        self.posts[post] = False
 
-        output = {'author': [],
-                  'post_id': [],
-                  'contents': [],
-                  'created_at': []}
+    def add_posts(self, post_list):
+        for post in post_list:
+            self.posts[post] = False
 
-        try:
-            result = requests.get(
-                f'https://www.instagram.com/p/{lastpostid}/?__a=1')
-            whole = result.json()
-            comments = whole['graphql']['shortcode_media']['edge_media_to_parent_comment']['edges']
-
-            for comment in comments:
-                output['author'].append(comment['node']['owner']['username'])
-                output['post_id'].append(comment['node']['id'])
-                output['contents'].append(comment['node']['text'])
-                output['created_at'].append(comment['node']['created_at'])
-
-            df = pd.DataFrame(output)
-            df.to_csv(f'{user}-{lastpostid}-{current_time}.csv')
-            print(
-                f'File ({user}-{lastpostid}-{current_time}.csv) created at local directory')
-
-        except:
-            print('No comments currently found.')
-
-    except:
-        print("Something happened, please check the spelling for the user handle.")
-
-    print('Done!')
-
-
-try:
-    user_input = str(argv[1])
-    getComments(user_input)
-except:
-    print('Execute the script with an Instagram Handle as the parameter e.g: \n\
-          $ python3 igScrape userhandle')
+    def gather_posts(self):
+        for profile in self.profiles.keys():
+            sleep(randint(3, 5))
+            try:
+                print(f"Requesting {profile}")
+                response = requests.get(f"https://www.instagram.com/{profile}/?__a=1")
+                parsed_json = json.loads(response.text)
+                shortcodes = [i["node"]["shortcode"] for i in parsed_json["graphql"]["user"]["edge_owner_to_timeline_media"]["edges"]]
+                self.profiles[profile] = True
+                with open('posts.csv', 'a') as f:
+                    f.write(f'\"User\",\"Post\",\"Status\"\n')
+                    for i in shortcodes:
+                        f.write(f'\"{profile}\",\"{i}\",\"{False}\"\n')
+            except:
+                self.profiles[profile] = False
+                raise "Failed attempt"
